@@ -4,7 +4,7 @@ constexpr unsigned int ROTOR_PIN = 33;
 constexpr unsigned int PULSE_PIN = 32;
 constexpr unsigned int MAX_NUMBER_LENGTH = 20;
 constexpr unsigned int ROTOR_BOUNCE_CTR_VAL = 10000;
-constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 10000;
+constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 15000;
 
 enum class rotor_state_t {
   idle,
@@ -33,11 +33,12 @@ inline void handle_rotor() {
     rotor_bounce_ctr -= 1;
   } else {
     // Transition between two states
-    if (digitalRead(ROTOR_PIN) && rotor_state == rotor_state_t::idle) {
+    int rotor_pin_value = digitalRead(ROTOR_PIN);
+    if ((rotor_pin_value == HIGH) && rotor_state == rotor_state_t::idle) {
       rotor_state = rotor_state_t::active;
       rotor_bounce_ctr = ROTOR_BOUNCE_CTR_VAL;
     }
-    if (rotor_state == rotor_state_t::active && !digitalRead(ROTOR_PIN)) {
+    if ((rotor_pin_value == LOW) && rotor_state == rotor_state_t::active) {
       rotor_state = rotor_state_t::idle;
       rotor_bounce_ctr = ROTOR_BOUNCE_CTR_VAL;
 #ifdef DEBUG
@@ -63,13 +64,14 @@ inline void handle_rotor() {
     if (pulse_bounce_ctr) {
       pulse_bounce_ctr -= 1;
     } else {
-      if (digitalRead(PULSE_PIN) && pulse_state == pulse_state_t::low) {
+      int pulse_pin_value = digitalRead(PULSE_PIN);
+      if ((pulse_pin_value == HIGH) && pulse_state == pulse_state_t::low) {
         pulse_state = pulse_state_t::high;
         pulse_bounce_ctr = PULSE_BOUNCE_CTR_VAL;
 
         pulse_ctr += 1;
       }
-      if (pulse_state == pulse_state_t::high && !digitalRead(PULSE_PIN)) {
+      if ((pulse_pin_value == LOW) && pulse_state == pulse_state_t::high) {
         pulse_state = pulse_state_t::low;
         pulse_bounce_ctr = PULSE_BOUNCE_CTR_VAL;
       }
