@@ -6,18 +6,10 @@ constexpr unsigned int MAX_NUMBER_LENGTH = 20;
 constexpr unsigned int ROTOR_BOUNCE_CTR_VAL = 10000;
 constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 15000;
 
-enum class rotor_state_t {
-  idle,
-  active
-};
+enum class rotor_state_t { idle, active };
+enum class pulse_state_t { low, high };
 
 rotor_state_t rotor_state = rotor_state_t::idle;
-
-enum class pulse_state_t {
-  low,
-  high
-};
-
 pulse_state_t pulse_state = pulse_state_t::low;
 
 unsigned int pulse_ctr = 0;
