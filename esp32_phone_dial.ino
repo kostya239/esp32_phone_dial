@@ -1,83 +1,95 @@
-#define DEBUG
-
 constexpr unsigned int ROTOR_PIN = 33;
 constexpr unsigned int PULSE_PIN = 32;
-constexpr unsigned int MAX_NUMBER_LENGTH = 20;
 constexpr unsigned int ROTOR_BOUNCE_CTR_VAL = 10000;
 constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 15000;
 
-enum class rotor_state_t { idle, active };
-enum class pulse_state_t { low, high };
+class phone_dial {
+public:
+  phone_dial();
+  void attach(unsigned int rotor_pin, unsigned int pulse_pin);
+  void update();
+  bool ready();
+  unsigned int read();
 
-rotor_state_t rotor_state = rotor_state_t::idle;
-pulse_state_t pulse_state = pulse_state_t::low;
+private:
+  unsigned int rotor_pin;
+  unsigned int pulse_pin;
+  int rotor_state;
+  int pulse_state;
+  unsigned int digit;
+  bool is_digit_ready;
+  unsigned int pulse_ctr;
+  unsigned int rotor_bounce_ctr;
+  unsigned int pulse_bounce_ctr;
+};
 
-unsigned int pulse_ctr = 0;
-unsigned int number_buffer[MAX_NUMBER_LENGTH] = {0};
-unsigned int number_length = 0;
+phone_dial::phone_dial()
+    : is_digit_ready{false}, pulse_ctr{0}, rotor_state{LOW}, pulse_state{LOW},
+      rotor_bounce_ctr{0}, pulse_bounce_ctr{0} {}
 
-unsigned int rotor_bounce_ctr = 0;
-unsigned int pulse_bounce_ctr = 0;
+void phone_dial::attach(unsigned int rotor_pin, unsigned int pulse_pin) {
+  // NOTE: not every pin has pullup/pulldown resistors!
+  pinMode(rotor_pin, INPUT_PULLDOWN);
+  pinMode(pulse_pin, INPUT_PULLUP);
+  this->rotor_pin = rotor_pin;
+  this->pulse_pin = pulse_pin;
+}
 
-// TODO: replace global variables with local static
-inline void handle_rotor() {
+void phone_dial::update() {
+  int rotor_pin_value = digitalRead(rotor_pin);
   if (rotor_bounce_ctr) {
     rotor_bounce_ctr -= 1;
   } else {
-    // Transition between two states
-    int rotor_pin_value = digitalRead(ROTOR_PIN);
-    if ((rotor_pin_value == HIGH) && rotor_state == rotor_state_t::idle) {
-      rotor_state = rotor_state_t::active;
+    int rotor_pin_value = digitalRead(rotor_pin);
+    if (rotor_pin_value == HIGH && rotor_state == LOW) {
+      rotor_state = HIGH;
       rotor_bounce_ctr = ROTOR_BOUNCE_CTR_VAL;
     }
-    if ((rotor_pin_value == LOW) && rotor_state == rotor_state_t::active) {
-      rotor_state = rotor_state_t::idle;
+    if (rotor_pin_value == LOW && rotor_state == HIGH) {
+      rotor_state = LOW;
       rotor_bounce_ctr = ROTOR_BOUNCE_CTR_VAL;
-#ifdef DEBUG
-      Serial.print(">>> DBG: Current digit: ");
-      Serial.println(pulse_ctr);
-#endif
 
-      if (number_length == MAX_NUMBER_LENGTH) {
-        number_length = 0;
-#ifdef DEBUG
-        Serial.println(">>> DBG: Number buffer overflow");
-#endif
-      }
-
-      number_buffer[number_length] = pulse_ctr % 10;
+      digit = pulse_ctr % 10;
+      is_digit_ready = true;
       pulse_ctr = 0;
-      number_length += 1;
     }
   }
 
-  // Counting impulses
-  if (rotor_state == rotor_state_t::active) {
+  if (rotor_state == HIGH) {
     if (pulse_bounce_ctr) {
       pulse_bounce_ctr -= 1;
     } else {
-      int pulse_pin_value = digitalRead(PULSE_PIN);
-      if ((pulse_pin_value == HIGH) && pulse_state == pulse_state_t::low) {
-        pulse_state = pulse_state_t::high;
+      int pulse_pin_value = digitalRead(pulse_pin);
+      if (pulse_pin_value == HIGH && pulse_state == LOW) {
+        pulse_state = HIGH;
         pulse_bounce_ctr = PULSE_BOUNCE_CTR_VAL;
-
         pulse_ctr += 1;
       }
-      if ((pulse_pin_value == LOW) && pulse_state == pulse_state_t::high) {
-        pulse_state = pulse_state_t::low;
+      if (pulse_pin_value == LOW && pulse_state == HIGH) {
+        pulse_state = LOW;
         pulse_bounce_ctr = PULSE_BOUNCE_CTR_VAL;
       }
     }
   }
 }
 
+bool phone_dial::ready() { return is_digit_ready; }
+
+unsigned int phone_dial::read() {
+  is_digit_ready = false;
+  return digit;
+}
+
+phone_dial dial = phone_dial();
+
 void setup() {
-  // NOTE: not every pin has pullup/pulldown resistors!
-  pinMode(ROTOR_PIN, INPUT_PULLDOWN);
-  pinMode(PULSE_PIN, INPUT_PULLUP);
+  dial.attach(ROTOR_PIN, PULSE_PIN);
   Serial.begin(115200);
 }
 
 void loop() {
-  handle_rotor();
+  dial.update();
+  if (dial.ready()) {
+    Serial.println(dial.read());
+  }
 }
