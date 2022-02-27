@@ -7,8 +7,8 @@
 #include "WProgram.h"
 #endif
 
-constexpr unsigned int ROTOR_BOUNCE_CTR_VAL = 10000;
-constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 15000;
+constexpr unsigned int ROTOR_BOUNCE_CTR_VAL = 1000;
+constexpr unsigned int PULSE_BOUNCE_CTR_VAL = 1500;
 
 class phone_dial {
 public:
