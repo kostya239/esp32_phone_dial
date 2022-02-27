@@ -6,7 +6,7 @@ constexpr unsigned int PULSE_PIN = 32;
 phone_dial dial = phone_dial();
 
 void setup() {
-  // dial.attach(ROTOR_PIN, PULSE_PIN);
+  dial.attach(ROTOR_PIN, PULSE_PIN);
   Serial.begin(115200);
 }
 
@@ -20,25 +20,28 @@ void setup() {
 enum class phone_state_t {
   HANDSET_ON,
   HANDSET_OFF,
-  DIALING, // is this state necessary? we can probaly handle dialing during
-           // HANDSET_OFF state and then go to OUTGOING_CALL state after...
   OUTGOING_CALL,
   INCOMING_CALL,
   CONVERSATION
 };
 
+int number[11];
+
 bool is_handset_on();
 bool is_call_incoming();
-bool is_dialing();
 bool is_number_ready();
-bool is_interlocutor_dropped_outgoing_call();
+bool is_they_dropped_outgoing_call();
 bool is_incoming_call_accepted();
 bool is_incoming_call_unanswered();
-bool is_interlocutor_dropped_conversation();
+bool is_they_dropped_conversation();
+
+void on_number_ready();
 
 auto current_state = phone_state_t::HANDSET_ON;
 
 void loop() {
+dial.update();
+
   switch (current_state) {
 
   case phone_state_t::HANDSET_ON:
@@ -60,22 +63,10 @@ void loop() {
       DEBUG_PRINTLN("DEBUG: switching state HANDSET_OFF -> HANDSET_ON");
       break;
     }
-    if (is_dialing()) {
-      current_state = phone_state_t::DIALING;
-      DEBUG_PRINTLN("DEBUG: switching state HANDSET_OFF -> DIALING");
-      break;
-    }
-    break;
-
-  case phone_state_t::DIALING:
-    if (is_handset_on()) {
-      current_state = phone_state_t::HANDSET_ON;
-      DEBUG_PRINTLN("DEBUG: switching state DIALING -> HANDSET_ON");
-      break;
-    }
     if (is_number_ready()) {
       current_state = phone_state_t::OUTGOING_CALL;
-      DEBUG_PRINTLN("DEBUG: switching state DIALING -> OUTGOING_CALL");
+      DEBUG_PRINTLN("DEBUG: switching state HANDSET_OFF -> OUTGOING_CALL");
+      on_number_ready();
       break;
     }
     break;
@@ -86,7 +77,7 @@ void loop() {
       DEBUG_PRINTLN("DEBUG: switching state OUTGOING_CALL -> HANDSET_ON");
       break;
     }
-    if (is_interlocutor_dropped_outgoing_call()) {
+    if (is_they_dropped_outgoing_call()) {
       current_state = phone_state_t::HANDSET_OFF;
       DEBUG_PRINTLN("DEBUG: switching state OUTGOING_CALL -> HANDSET_OFF");
       break;
@@ -117,34 +108,43 @@ void loop() {
       DEBUG_PRINTLN("DEBUG: switching state CONVERSATION -> HANDSET_ON");
       break;
     }
-    if (is_interlocutor_dropped_conversation()) {
+    if (is_they_dropped_conversation()) {
       current_state = phone_state_t::HANDSET_OFF;
-      DEBUG_PRINTLN("DEBUG: switching state OUTGOING_CALL -> HANDSET_OFF");
+      DEBUG_PRINTLN("DEBUG: switching state CONVERSATION -> HANDSET_OFF");
       break;
     }
   }
 }
 
-bool is_handset_on() {
-  delay(3000);
+bool is_handset_on() { return false; }
+bool is_call_incoming() { return false; }
+bool is_number_ready() {
+  static int ctr = 0;
+  if (ctr < 11) {
+    if (dial.ready()) {
+      number[ctr] = dial.read();
+      if (ctr == 10) return true;
+      ++ctr;
+    }
+  } else {
+    ctr = 0;
+    if (dial.ready()) {
+      number[ctr] = dial.read();
+      ++ctr;
+    }
+  }
   return false;
 }
-bool is_call_incoming() { return false; }
-bool is_dialing() {
-  delay(1000);
-  return true;
-}
-bool is_number_ready() {
-  delay(5000);
-  return true;
-}
-bool is_interlocutor_dropped_outgoing_call() { return false; }
-bool is_incoming_call_accepted() {
-  delay(3000);
-  return true;
-}
+bool is_they_dropped_outgoing_call() { return false; }
+bool is_incoming_call_accepted() { return false; }
 bool is_incoming_call_unanswered() { return false; }
-bool is_interlocutor_dropped_conversation() {
-  delay(5000);
-  return true;
+bool is_they_dropped_conversation() { return true; }
+
+void on_number_ready()
+{
+  Serial.print("calling... ");
+  for (int i = 0; i < 11; ++i) {
+    Serial.print(number[i]);
+  }
+  Serial.println("");
 }
